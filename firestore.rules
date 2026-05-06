@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidBudgetItem(data) {
+      return data.keys().hasAll(['name', 'amount', 'frequency', 'category', 'userId', 'updatedAt']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.amount is number &&
+             data.frequency in ['daily', 'weekly', 'monthly', 'quarterly', 'semi-annually', 'annually'] &&
+             data.category in ['income', 'fixed-expense', 'occasional-expense'] &&
+             data.userId == request.auth.uid &&
+             data.updatedAt == request.time &&
+             (!('categoryId' in data) || data.categoryId is string);
+    }
+
+    // --- Collection Rules ---
+    match /categories/{categoryId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(categoryId) && 
+                    request.resource.data.name is string && 
+                    request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(existing().userId) && 
+                    incoming().userId == existing().userId;
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /budgetItems/{itemId} {
+      allow get: if isOwner(existing().userId);
+      
+      allow list: if isSignedIn() && 
+                   resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() && 
+                    isValidId(itemId) &&
+                    isValidBudgetItem(incoming()) &&
+                    incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() &&
+                    isOwner(existing().userId) &&
+                    isValidBudgetItem(incoming()) &&
+                    incoming().userId == existing().userId &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'amount', 'frequency', 'category', 'categoryId', 'updatedAt']);
+
+      allow delete: if isOwner(existing().userId);
+    }
+  }
+}

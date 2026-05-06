@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Custom Category",
+      "description": "User defined category for expenses",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "color", "userId"]
+    },
+    "BudgetItem": {
+      "title": "Budget Item",
+      "description": "A single entry for income or expense",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the item" },
+        "amount": { "type": "number", "description": "The monetary value" },
+        "frequency": { 
+          "type": "string", 
+          "description": "How often this occurs",
+          "enum": ["daily", "weekly", "monthly", "quarterly", "semi-annually", "annually"]
+        },
+        "category": {
+          "type": "string",
+          "description": "The type of budget item",
+          "enum": ["income", "fixed-expense", "occasional-expense"]
+        },
+        "categoryId": { "type": "string", "description": "The custom category ID" },
+        "userId": { "type": "string", "description": "The owner of this item" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "amount", "frequency", "category", "userId"]
+    }
+  },
+  "firestore": {
+    "budgetItems/{itemId}": {
+      "schema": "BudgetItem",
+      "description": "Collection of all family budget items"
+    },
+    "categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User defined expense categories"
+    }
+  }
+}
